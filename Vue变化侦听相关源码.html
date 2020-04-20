@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    /**
+     * 
+     * 首先我们都知道VUE是数据驱动视图，那么往深入想一下，数据变化了之后是怎么通知给视图的呢
+     * 
+     * 比如下面这个例子
+     */
+    var car = {
+      brand: '奔驰'
+    }
+    var val = 30000
+    Object.defineProperty(car, 'price', {
+      enumerable: true,
+      configurable: true,
+      get() {
+        console.log('price属性被读取了')
+        return val
+      },
+      set(newVal) {
+        console.log('price属性被修改了')
+        val = newVal
+      },
+    })
+    // 这里有个问题，现在只能观测price这个属性，但是怎么让这个对象的所有属性都可以监听的到呢。在vue源码中给了我们答案
+
+
+    /**
+     * 
+     * 首先在src/core/observer/index.js 目录下，定义了一个 Observer的 类函数
+     * 
+     */
+    constructor(value: any) {
+      this.value = value
+      this.dep = new Dep()
+      this.vmCount = 0
+      // 给value赋值一个新属性 __ob__ 相当于给value打了个记号，表示它已经成为响应式的了，避免重复操作
+      def(value, '__ob__', this)
+      if (Array.isArray(value)) {
+        if (hasProto) {
+          protoAugment(value, arrayMethods)
+        } else {
+          copyAugment(value, arrayMethods, arrayKeys)
+        }
+        this.observeArray(value)
+      } else {
+        // 如果value 是个对象的话 调用walk函数, walk函数是一个for循环函数,循环object.defineProperty 为每一个属性都添加观测器
+        this.walk(value)
+      }
+    }
+
+    /**
+     * 
+     * 在object.defineProperty里有一个判断,是否他的属性是一个对象,如果是对象的话,递归Observer类函数
+     * 
+     * 
+     * 现在数据变成可观测到了,现在可以通知视图修改了,可是视图这么大,通知谁去变化呢,所以谁依赖这个数据,就通知谁去变化
+     * 
+     * object.defineProperty中有 get 和 set 函数
+     * 存放依赖的地方是一个数组,依赖Dep是一个类函数,里面有添加依赖函数,删除依赖函数,更新依赖函数
+     * 
+     *  get负责收集依赖,set负责更新依赖
+     * 
+     * 
+     * 上面说道存放依赖的是一个数组,数组里面实际上是依赖的Watcher实例,在set数据变化后,我们是去通知依赖的Watcher实例去更新视图,Watcher实例用于更新视图!
+     * 
+     * 
+     * 在Watcher类上,有一个全局唯一对象window.target = this,他把自己的实例赋了上去,读取数据的时候,会触发getter,然后getter就会只读取全局唯一的watcher实例,并且把它收集到Dep里面去.
+     * 数据变化的时候,对Dep中每一个watch发送通知
+     * 
+     * 总结一下:
+     *  Data通过observer转换成了getter/setter的形式来追踪变化。
+     * 当外界通过Watcher读取数据时，会触发getter从而将Watcher添加到依赖中。
+     *  当数据发生了变化时，会触发setter，从而向Dep中的依赖（即Watcher）发送通知。
+     *  Watcher接收到通知后，会向外界发送通知，变化通知到外界后可能会触发视图更新，也有可能触发用户的某个回调函数等。
+     */
+  </script>
+</body>
+
+</html>
