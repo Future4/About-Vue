@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Document</title>
+  <title>vue变化侦听相关源码</title>
 </head>
 
 <body>
@@ -83,6 +83,109 @@
      * 当外界通过Watcher读取数据时，会触发getter从而将Watcher添加到依赖中。
      *  当数据发生了变化时，会触发setter，从而向Dep中的依赖（即Watcher）发送通知。
      *  Watcher接收到通知后，会向外界发送通知，变化通知到外界后可能会触发视图更新，也有可能触发用户的某个回调函数等。
+     */
+
+    /**
+     * 
+     * 
+     * 侦听了obejct的变化，下面来看看array的变化
+     * 
+     * 首先array的收集依赖也是在getter中收集，想一下，如果想要Array发生变化，必然是操作了array，那么操作Array的就那么几个方法，push、unshift、splice、等
+     * 
+     * 我们可以重写一个这些方法，并且为这个新方法其添加一些新的功能，比如侦听什么的。
+     * 
+     */
+    // 源码位置：/src/core/observer/array.js
+
+    const arrayProto = Array.prototype
+    // 创建一个对象作为拦截器
+    export const arrayMethods = Object.create(arrayProto)
+
+    // 改变数组自身内容的7个方法
+    const methodsToPatch = [
+      'push',
+      'pop',
+      'shift',
+      'unshift',
+      'splice',
+      'sort',
+      'reverse'
+    ]
+
+    /**
+     * Intercept mutating methods and emit events
+     * 拦截变异方法，并且发布事件
+     */
+    methodsToPatch.forEach(function (method) {
+      const original = arrayProto[method] // 缓存原生方法
+      Object.defineProperty(arrayMethods, method, {
+        enumerable: false,
+        configurable: true,
+        writable: true,
+        value: function mutator(...args) {
+          const result = original.apply(this, args)
+          return result
+        }
+      })
+    })
+
+    /**
+     * 
+     * 上面做的操作是：arrayMethods复制了原生js数组方法，实际上arrayMethods.push就是新函数 mutator函数
+     * 
+     */
+
+
+
+    // 源码位置：/src/core/observer/index.js
+    export class Observer {
+      constructor(value) {
+        this.value = value
+        if (Array.isArray(value)) {
+          const augment = hasProto ?
+            protoAugment :
+            copyAugment
+          augment(value, arrayMethods, arrayKeys)
+        } else {
+          this.walk(value)
+        }
+      }
+    }
+    // 能力检测：判断__proto__是否可用，因为有的浏览器不支持该属性
+    export const hasProto = '__proto__' in {}
+
+    const arrayKeys = Object.getOwnPropertyNames(arrayMethods)
+
+    /**
+     * Augment an target Object or Array by intercepting
+     * the prototype chain using __proto__
+     */
+    function protoAugment(target, src: Object, keys: any) {
+      target.__proto__ = src
+    }
+
+    /**
+     * Augment an target Object or Array by defining
+     * hidden properties.
+     */
+    /* istanbul ignore next */
+    function copyAugment(target: Object, src: Object, keys: Array < string > ) {
+      for (let i = 0, l = keys.length; i < l; i++) {
+        const key = keys[i]
+        def(target, key, src[key])
+      }
+    }
+
+    /**
+     * 想要使拦截器生效，需要将arrayMethods挂载到数组实例和Array.prototype之间，只要把数据的__proto__属性设置为拦截器arrayMethods即可
+     * 
+     * 上面代码得知：是否含有__proto__如果有，那么直接挂在，如果没有，那么把拦截器中重写的方法循环加入到value中
+     * 
+     * 依赖仍旧是从getter中收集 ，在set中 notify 更新依赖
+     * 
+     * 
+     * 如果是深度侦听：在observeArray中遍历每一个数据，然后observe(items[i])
+     * 
      */
   </script>
 </body>
