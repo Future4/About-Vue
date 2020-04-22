@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>虚拟DOM</title>
+</head>
+
+<body>
+    <script>
+        /*  首先先来知道一下什么是虚拟DOM，
+        虚拟DOM是由js对象来描述的DOM节点比如说
+
+        <div id="app">wo shi nei rong </div>
+        上面的是真实DOM，转化成虚拟DOM就是
+        {
+            tag:'div',
+            attrs:{
+                id:"app"
+            },
+            text:'wo shi nei rong',
+            childrem:[],
+        }
+
+
+        为什么要有虚拟DOM呢，
+        因为vue是用数据驱动视图的，如果用dom操作的话会非常的耗费性能，因为dom里有很多的属性
+        所以我们用虚拟DOM来代表真实DOM
+
+        在VUE中定义了一个VDOM的类大致如下
+
+        // export default class VNode {
+        //     constructor (
+        //         tag?: string,
+        //         data?: VNodeData,
+        //         children?: ?Array<VNode>,
+        //         text?: string,
+        //         elm?: Node,
+        //         context?: Component,
+        //         componentOptions?: VNodeComponentOptions,
+        //         asyncFactory?: Function
+        //     ) {
+        //         this.tag = tag                                /*当前节点的标签名*/
+        // this.data = data /*当前节点对应的对象，包含了具体的一些数据信息，是一个VNodeData类型，可以参考VNodeData类型中的数据信息*/
+        // this.children = children /*当前节点的子节点，是一个数组*/
+        // this.text = text /*当前节点的文本*/
+        // this.elm = elm /*当前虚拟节点对应的真实dom节点*/
+        // this.ns = undefined /*当前节点的名字空间*/
+        // this.context = context /*当前组件节点对应的Vue实例*/
+        // this.fnContext = undefined /*函数式组件对应的Vue实例*/
+        // this.fnOptions = undefined
+        // this.fnScopeId = undefined
+        // this.key = data && data.key /*节点的key属性，被当作节点的标志，用以优化*/
+        // this.componentOptions = componentOptions /*组件的option选项*/
+        // this.componentInstance = undefined /*当前节点对应的组件的实例*/
+        // this.parent = undefined /*当前节点的父节点*/
+        // this.raw = false /*简而言之就是是否为原生HTML或只是普通文本，innerHTML的时候为true，textContent的时候为false*/
+        // this.isStatic = false /*静态节点标志*/
+        // this.isRootInsert = true /*是否作为跟节点插入*/
+        // this.isComment = false /*是否为注释节点*/
+        // this.isCloned = false /*是否为克隆节点*/
+        // this.isOnce = false /*是否有v-once指令*/
+        // this.asyncFactory = asyncFactory
+        // this.asyncMeta = undefined
+        // this.isAsyncPlaceholder = false
+        // }
+
+        //     get child(): Component | void {
+        //         return this.componentInstance
+        //     }
+        // }
+
+        /*
+            根据不同属性之间的搭配，我们可以得到很多的节点
+
+            比如：
+            注释节点  内部有一个属性为 isCommend 为 True时为注释节点
+            文本节点
+            元素节点  
+            clone节点  isCloned为true时  这是唯一的不同
+            函数式组件节点
+            组件节点
+            
+
+            VNode的作用就是在vue视图渲染前，先把template编译成虚拟DOM，然后根据新旧虚拟DOM来判断更新哪个数据
+
+
+
+            Diff是什么，
+            diff中的patch操作大致是这个样子的，在对比新旧VNode中，
+            一切以新VNode作为基准，如果新Vnode上的有节点，旧的VNode没有，那么就更新旧的VNode
+
+            新VNode（有）   旧VNode（没有）   --》 更新旧VNode 加上节点
+            新VNode（没有）   旧VNode（有）   --》 更新旧VNode 删除节点
+            新VNode（有）   旧VNode（有）   --》 更新旧VNode 以新VNode为准
+
+            以上就是patch干的事情
+
+
+            在创建节点的时候，只有三个类型的节点能被创建上去
+            1.注释节点
+            2.文本节点
+            3.元素节点
+
+
+            删除节点 只需要调用 removeChild方法即可
+
+
+            更新节点 找出新旧VNode中不一样的地方，进行更新即可
+
+            if （新VNode是文本节点） 看旧VNode是不是文本节点，如果是 那么直接更新文字，如果不是，调用setTextNode方法变成文本节点
+            
+            if （新VNode是元素节点） 
+                if(新VNode有子节点) 看旧VNode是不是有子节点  如果是 那就递归对比更新子节点，如果不是，新的节点里的子节点创建一份然后插入到旧的节点里面。
+                if(新VNode没有子节点)  表明是空节点  直接清空即可
+
+
+
+
+
+            在更新子节点的时候，需要用到两层for循环，外层是newChildren  内层是oldChildren
+            当节点复杂的时候，那么复杂度会便很高，所以需要优化
+
+            我们来定义一些东西：
+            newChildren数组里的所有未处理子节点的第一个子节点称为：新前；
+            newChildren数组里的所有未处理子节点的最后一个子节点称为：新后；
+            oldChildren数组里的所有未处理子节点的第一个子节点称为：旧前；
+            oldChildren数组里的所有未处理子节点的最后一个子节点称为：旧后；
+
+
+            新前 == 旧前    直接更新，无需移动节点
+            新后 == 旧后    直接更新，无需移动节点
+
+
+
+            新前 == 旧后    把旧后的节点添加到所有未处理节点之前
+            新后 == 旧前    把旧前的节点添加到所有未处理节点之后
+
+            
+            Vue为了避免双重循环数据量大时间复杂度升高带来的性能问题，而选择了从子节点数组中的4个特殊位置互相比对，分别是：新前与旧前，新后与旧后，新后与旧前，新前与旧后。
+
+
+        */
+    </script>
+</body>
+
+</html>
