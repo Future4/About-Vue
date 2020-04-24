@@ -1,1 +1,95 @@
 
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>生命周期</title>
+</head>
+
+<body>
+  <script>
+    /*
+     *
+     * 在 new Vue的时候，实际上是执行了一个 初始化一个Vue的类实例，调用的_init方法
+     * 
+     */
+    function Vue(options) {
+      if (process.env.NODE_ENV !== 'production' &&
+        !(this instanceof Vue)
+      ) {
+        warn('Vue is a constructor and should be called with the `new` keyword')
+      }
+      this._init(options)
+    }
+
+
+    /**
+     * 
+     * 这个_init方法怎么来的呢？
+     * 
+     * 实际上是这个方法initMixin(vue)，但是这个方法怎么来的呢
+     * 
+     * 在 src/core/instance/init.js
+     * 
+     */
+
+    export function initMixin(Vue) {
+      Vue.prototype._init = function (options) {
+        const vm = this
+        // mergeOptions函数实际上是用来 合并属性的
+        vm.$options = mergeOptions(
+          resolveConstructorOptions(vm.constructor),
+          options || {},
+          vm
+        )
+        vm._self = vm
+        initLifecycle(vm) //初始化生命周期
+        initEvents(vm) //初始化事件
+        initRender(vm) //初始化渲染
+        callHook(vm, 'beforeCreate') // 调用生命周期钩子函数
+        initInjections(vm) // resolve injections before data/props//初始化injections
+        initState(vm) //初始化props,methods,data,computed,watch
+        initProvide(vm) // resolve provide after data/props//初始化Provide
+        callHook(vm, 'created') //调用生命周期钩子函数
+
+        // 是否有 定义的el  就是人么经常写的  el：'#app'
+        if (vm.$options.el) {
+          vm.$mount(vm.$options.el)
+        }
+        //如果没有传入el选项，则不进入下一个生命周期阶段，需要用户手动执行vm.$mount方法才进入下一个生命周期阶段
+      }
+    }
+
+
+    /**
+     * 
+     * 
+     * callHook函数如何触发钩子函数的呢
+     * 
+     * 因为循环  在src/core/instance/lifecycle.js
+     */
+
+    export function callHook(vm: Component, hook: string) {
+      const handlers = vm.$options[hook]
+      if (handlers) {
+        for (let i = 0, j = handlers.length; i < j; i++) {
+          try {
+            handlers[i].call(vm)
+          } catch (e) {
+            handleError(e, vm, `${hook} hook`)
+          }
+        }
+      }
+    }
+
+    // 从实例的$options中 得到钩子函数的名字所对应的钩子函数的数组，然后遍历循环这个数组，执行它
+
+
+    // 总结就是  合并配置，初始化一些函数，出发生命周期钩子函数，然后调用$mount启动下一个阶段
+  </script>
+</body>
+
+</html>
