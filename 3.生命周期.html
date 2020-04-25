@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -89,6 +88,134 @@
 
 
     // 总结就是  合并配置，初始化一些函数，出发生命周期钩子函数，然后调用$mount启动下一个阶段
+
+
+
+
+
+    /**
+     * 
+     *  initLifecycle函数分析
+     */
+    export function initLifecycle(vm: Component) {
+      const options = vm.$options
+
+      // locate first non-abstract parent
+      let parent = options.parent
+      //是否存在父级并且是否不是是抽象组件
+      if (parent && !options.abstract) {
+        while (parent.$options.abstract && parent.$parent) {
+          parent = parent.$parent
+        }
+        parent.$children.push(vm)
+      }
+
+      vm.$parent = parent
+
+      // 是否存在父级，如果存在 把$root给父级，如果不存在$root就是自己
+      vm.$root = parent ? parent.$root : vm
+
+      vm.$children = []
+      vm.$refs = {}
+
+      vm._watcher = null
+      vm._inactive = null
+      vm._directInactive = false
+      vm._isMounted = false
+      vm._isDestroyed = false
+      vm._isBeingDestroyed = false
+    }
+
+    // 首先他给实例挂在上了$parent属性
+    // 之后的逻辑是这样的 是否存在父级并且是否不是是抽象组件，如果是的话，那就while向上循环，查找当前组件父级的父级，直到找到第一个不是抽象类型的父级，将其赋值vm.$parent
+    // 同时把自身添加到父级的$children中
+    // 这样就确保了 父组件的￥children中能访问到子组件的实例，子组件的￥parent中能访问到父组件中的实例
+
+
+
+
+
+
+
+
+    /**
+     * 
+     * 初始化函数阶段 initEvents
+     * 
+     * <child @select="selectHandler" 	@click.native="clickHandler"></child>
+     */
+    export const onRE = /^@|^v-on:/
+    export const dirRE = /^v-|^@|^:/
+
+    function processAttrs(el) {
+      const list = el.attrsList
+      let i, l, name, value, modifiers
+      for (i = 0, l = list.length; i < l; i++) {
+        name = list[i].name
+        value = list[i].value
+        if (dirRE.test(name)) {
+          // 解析修饰符
+          modifiers = parseModifiers(name)
+          if (modifiers) {
+            name = name.replace(modifierRE, '')
+          }
+          if (onRE.test(name)) { // v-on
+            name = name.replace(onRE, '')
+            addHandler(el, name, value, modifiers, false, warn)
+          }
+        }
+      }
+    }
+
+    // 上面的步骤相当于：遍历元素上的属性，判断是否包含v- @ ： 如果是的话，解析修饰符，判断是否v-on，是的话 调用 addHandler()函数
+    // 
+    // 总结 实例化阶段调用的initEvents实际上是初始化父组件在模板中用的 v-on注册的监听子组件内触发的事件
+
+
+
+    /**
+     * 
+     * initInjections函数分析
+     */
+    export function initInjections(vm: Component) {
+      const result = resolveInject(vm.$options.inject, vm)
+      if (result) {
+        toggleObserving(false);
+        Object.keys(result).forEach((key) => {
+          defineReactive(vm, key, result[key])
+        })
+        toggleObserving(true)
+      }
+    }
+
+    export let shouldObserve: boolean = true
+    export function toggleObserving(value: boolean) {
+      shouldObserve = value
+    }
+
+    // 首先 一定会怀疑  provied和inject不是配套使用的吗，为什么这里会先initinject呢，而之后会initState，最后才initProvied
+
+    // 因为在vue官方文档里 介绍provied和inject的时候说了， provide选项注入的值作为 《数据》 入口
+    // 这里的数据又是什么呢？实际上是 props data watch method computed这些常用的东西
+
+    // 所以inject注入的值可能被这些数据用到，所以在初始化inject后腰initState，然后在initProvide
+
+
+
+    // result = resolveInject(vm.$options.inject, vm)得到的是一个包含键值对的对象
+    // resolveInject函数中，他会自底向上查找传过来的属性 ，查找父级组件中的_provided
+    // 上面代码的逻辑是：是否得到了结果，如果是，先把toggleObserving（false）然后遍历结果的键值对；
+    // toggleObserving = false  这就是为什么 provide和inject绑定不是响应式的，这是刻意为之的。然而，如果你传入了一个可监听的对象，那么其对象的属性还是可响应的。
+
+    // 标准写法：
+
+    // inject:{
+    //   foo:{
+    //     from:'foo',
+    //     default:'我是默认值'
+    //   }
+    // }
+
   </script>
 </body>
 
