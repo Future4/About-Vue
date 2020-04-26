@@ -61,7 +61,7 @@
         //如果没有传入el选项，则不进入下一个生命周期阶段，需要用户手动执行vm.$mount方法才进入下一个生命周期阶段
       }
     }
-
+    /*************************************************************************************************************************************************/
 
     /**
      * 
@@ -90,7 +90,7 @@
     // 总结就是  合并配置，初始化一些函数，出发生命周期钩子函数，然后调用$mount启动下一个阶段
 
 
-
+    /*************************************************************************************************************************************************/
 
 
     /**
@@ -133,7 +133,7 @@
 
 
 
-
+    /*************************************************************************************************************************************************/
 
 
 
@@ -171,7 +171,7 @@
     // 
     // 总结 实例化阶段调用的initEvents实际上是初始化父组件在模板中用的 v-on注册的监听子组件内触发的事件
 
-
+    /*************************************************************************************************************************************************/
 
     /**
      * 
@@ -216,6 +216,192 @@
     //   }
     // }
 
+    /*************************************************************************************************************************************************/
+
+    /**
+     * 
+     *  初始化State
+     */
+    export function initState(vm: Component) {
+      // 给实例上新增了一个_watchers属性，存储当前实例中所有watcher实例
+      vm._watchers = []
+      const opts = vm.$options
+      // 判断实例上是否有props选项
+      if (opts.props) initProps(vm, opts.props)
+      // 判断实例上是否有methods选项
+      if (opts.methods) initMethods(vm, opts.methods)
+      // 判断实例上是否有data选项
+      if (opts.data) {
+        initData(vm)
+      } else {
+        // 空对象给实例，并且转化为响应式
+        observe(vm._data = {}, true /* asRootData */ )
+      }
+      // 判断实例上是否有computed选项
+      if (opts.computed) initComputed(vm, opts.computed)
+      // 判断实例上是否有watch选项
+      if (opts.watch && opts.watch !== nativeWatch) {
+        initWatch(vm, opts.watch)
+      }
+    }
+    /**
+     * 这些都是有顺序的，你会发现我们可以在data中使用props，在watch中可以观察data和props
+     * 
+     */
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * 
+     * initProps
+     */
+    function initProps(vm: Component, propsOptions: Object) {
+      const propsData = vm.$options.propsData || {}
+      const props = vm._props = {}
+      // cache prop keys so that future props updates can iterate using Array
+      // instead of dynamic object key enumeration.
+      // 缓存了props中的key到一个数组中，将来更新的时候，直接遍历这个数组就可以了。
+      const keys = vm.$options._propKeys = []
+      const isRoot = !vm.$parent
+      // root instance props should be converted
+      // 当前组件是否为根组件，不是的话响应为false
+      if (!isRoot) {
+        toggleObserving(false)
+      }
+      // 便利props选项，拿到每一个键值对
+      for (const key in propsOptions) {
+        keys.push(key)
+        // 这一步是验证，验证父组件传入的props数据类型是否匹配并且获取到传入的值
+        const value = validateProp(key, propsOptions, propsData, vm)
+        /* istanbul ignore else */
+        if (process.env.NODE_ENV !== 'production') {
+          const hyphenatedKey = hyphenate(key)
+          if (isReservedAttribute(hyphenatedKey) ||
+            config.isReservedAttr(hyphenatedKey)) {
+            warn(
+              `"${hyphenatedKey}" is a reserved attribute and cannot be used as component prop.`,
+              vm
+            )
+          }
+          defineReactive(props, key, value, () => {
+            if (!isRoot && !isUpdatingChildComponent) {
+              warn(
+                `Avoid mutating a prop directly since the value will be ` +
+                `overwritten whenever the parent component re-renders. ` +
+                `Instead, use a data or computed property based on the prop's ` +
+                `value. Prop being mutated: "${key}"`,
+                vm
+              )
+            }
+          })
+        } else {
+          // 将键和值通过defineReactive函数，放到props里
+          defineReactive(props, key, value)
+        }
+        // static props are already proxied on the component's prototype
+        // during Vue.extend(). We only need to proxy props defined at
+        // instantiation here.
+        // 是否这个键不在这个当前实例上，则调用proxy函数在vm上设置一个以key为属性的代码，当使用vm[key]访问数据时，其实访问的是vm._props[key]
+        if (!(key in vm)) {
+          proxy(vm, `_props`, key)
+        }
+      }
+      toggleObserving(true)
+    }
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * 
+     * 初始化methods
+     */
+    function initMethods(vm, methods) {
+      const props = vm.$options.props
+      // 遍历methods中的每个键值对
+      for (const key in methods) {
+        if (process.env.NODE_ENV !== 'production') {
+          // 当其中一个值为null的时候报错
+          if (methods[key] == null) {
+            warn(
+              `Method "${key}" has an undefined value in the component definition. ` +
+              `Did you reference the function correctly?`,
+              vm
+            )
+          }
+          // 当其中一个methods方法与某个props重名了的时候报错
+          if (props && hasOwn(props, key)) {
+            warn(
+              `Method "${key}" has already been defined as a prop.`,
+              vm
+            )
+          }
+          // 当其中一个methods方法的名字开头是_或者$的时候报错
+          if ((key in vm) && isReserved(key)) {
+            warn(
+              `Method "${key}" conflicts with an existing Vue instance method. ` +
+              `Avoid defining component methods that start with _ or $.`
+            )
+          }
+        }
+        // 如果上述都没问题，那么就把methods邦到vm实例上，就可以用this.xxx来访问了
+        vm[key] = methods[key] == null ? noop : bind(methods[key], vm)
+      }
+    }
+
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * 
+     * 初始化data
+     */
+
+    function initData(vm) {
+      let data = vm.$options.data
+      // data是否是一个函数，如果是函数调用getData方法，不是函数，将本身绑定到vm.data下
+      data = vm._data = typeof data === 'function' ?
+        getData(data, vm) :
+        data || {}
+        // 当不是object的时候，报错
+      if (!isPlainObject(data)) {
+        data = {}
+        process.env.NODE_ENV !== 'production' && warn(
+          'data functions should return an object:\n' +
+          'https://vuejs.org/v2/guide/components.html##data-Must-Be-a-Function',
+          vm
+        )
+      }
+      // proxy data on instance
+      const keys = Object.keys(data)
+      const props = vm.$options.props
+      const methods = vm.$options.methods
+      let i = keys.length
+      while (i--) {
+        const key = keys[i]
+        if (process.env.NODE_ENV !== 'production') {
+          // 方法名和data中的key名称相同时，报错
+          if (methods && hasOwn(methods, key)) {
+            warn(
+              `Method "${key}" has already been defined as a data property.`,
+              vm
+            )
+          }
+        }
+        // props和data中的key名称相同时，报错
+        if (props && hasOwn(props, key)) {
+          process.env.NODE_ENV !== 'production' && warn(
+            `The data property "${key}" is already declared as a prop. ` +
+            `Use prop default value instead.`,
+            vm
+          )
+        } else if (!isReserved(key)) {
+          // 开头不是 _ or $ 执行proxy将key代理到vm实例上
+          proxy(vm, `_data`, key)
+        }
+      }
+      // observe data 变为响应式的
+      observe(data, true /* asRootData */ )
+    }
   </script>
 </body>
 
