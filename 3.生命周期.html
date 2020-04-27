@@ -362,7 +362,7 @@
       data = vm._data = typeof data === 'function' ?
         getData(data, vm) :
         data || {}
-        // 当不是object的时候，报错
+      // 当不是object的时候，报错
       if (!isPlainObject(data)) {
         data = {}
         process.env.NODE_ENV !== 'production' && warn(
@@ -402,6 +402,256 @@
       // observe data 变为响应式的
       observe(data, true /* asRootData */ )
     }
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * 
+     * 初始化computed
+     * 
+     */
+    function initComputed(vm: Component, computed: Object) {
+      // 给 watchers一个空对象，指向实例上的_computedWatchers
+      const watchers = vm._computedWatchers = Object.create(null)
+      // 是否服务端渲染
+      const isSSR = isServerRendering()
+      // 遍历computed方法
+      for (const key in computed) {
+        const userDef = computed[key]
+        // computed是一个函数？直接赋值：对象.get方法赋值（对象里有 get方法，set方法）
+        const getter = typeof userDef === 'function' ? userDef : userDef.get
+        if (process.env.NODE_ENV !== 'production' && getter == null) {
+          warn(
+            `Getter is missing for computed property "${key}".`,
+            vm
+          )
+        }
+        // 是否非服务端渲染
+        if (!isSSR) {
+          // create internal watcher for the computed property.
+          watchers[key] = new Watcher(
+            vm,
+            getter || noop,
+            noop,
+            computedWatcherOptions
+          )
+        }
+        // 是否 实例上没有相同名称的键
+        if (!(key in vm)) {
+          // 调用defineComputed
+          defineComputed(vm, key, userDef)
+        } else if (process.env.NODE_ENV !== 'production') {
+          if (key in vm.$data) {
+            warn(`The computed property "${key}" is already defined in data.`, vm)
+          } else if (vm.$options.props && key in vm.$options.props) {
+            warn(`The computed property "${key}" is already defined as a prop.`, vm)
+          }
+        }
+      }
+    }
+
+    /*************************************************************************************************************************************************/
+
+    // 调用defineComputed方法
+
+    const sharedPropertyDefinition = {
+      enumerable: true,
+      configurable: true,
+      get: noop,
+      set: noop
+    }
+
+    export function defineComputed(target, key, userDef) {
+      // 不是服务端渲染的话，就应该被缓存
+      const shouldCache = !isServerRendering()
+      // 是否函数？
+      if (typeof userDef === 'function') {
+        // 是否应该缓存？调用createComputedGetter:直接把函数赋值
+        sharedPropertyDefinition.get = shouldCache ?
+          createComputedGetter(key) :
+          userDef
+        // 函数方法中不用set
+        sharedPropertyDefinition.set = noop
+      } else {
+        // 是否对象中有get方法
+        sharedPropertyDefinition.get = userDef.get ?
+          shouldCache && userDef.cache !== false ?
+          createComputedGetter(key) :
+          userDef.get :
+          noop
+        // 是否有set方法
+        sharedPropertyDefinition.set = userDef.set ?
+          userDef.set :
+          noop
+      }
+      if (process.env.NODE_ENV !== 'production' &&
+        // 如果没有set方法，给set方法警告一下
+        sharedPropertyDefinition.set === noop) {
+        sharedPropertyDefinition.set = function () {
+          warn(
+            `Computed property "${key}" was assigned to but it has no setter.`,
+            this
+          )
+        }
+      }
+      // 最后把 属性key绑定到target上
+      Object.defineProperty(target, key, sharedPropertyDefinition)
+    }
+
+    /*************************************************************************************************************************************************/
+
+    // 调用createComputedGetter方法
+
+    function createComputedGetter(key) {
+      return function computedGetter() {
+        const watcher = this._computedWatchers && this._computedWatchers[key]
+        if (watcher) {
+          watcher.depend()
+          return watcher.evaluate()
+        }
+      }
+    }
+
+    // 这个watcher来自于 Watcher类
+    /**
+     * 
+     * 在watcher类中 包含一个this.dirty属性，他来控制计算属性的缓存，如果数据变化的时候，this.dirty=true，然后就会重新计算结果
+     * 
+     * 在实例化Watcher的时候，computedWatcherOptions这个对象包含着一个{computed：true},代表着这个实例属于计算属性的watcher
+     * 
+     * 当计算属性依赖的数据发生变化的时候，计算属性watcher实例会执行watcher.updata()方法，updata方法中判断当前watcher是不是计算属性上的，
+     * 如果是，调用getAndInvoke对比计算属性的值是否发生了变化如果真的发生变化，则执行回调，通知那些读取计算属性的watcher重新执行渲染逻辑。
+     * 当调用watcher.evaluate()方法时，会先判断this.dirty是否为true，如果为true，
+     * 则表明计算属性所依赖的数据发生了变化，则调用this.get()重新获取计算结果最后返回；如果为false，则直接返回之前的计算结果
+     */
+    // 是否非服务端渲染
+    if (!isSSR) {
+      // create internal watcher for the computed property.
+      watchers[key] = new Watcher(
+        vm,
+        getter || noop,
+        noop,
+        computedWatcherOptions
+      )
+    }
+
+    // <!-- 
+    //                           使用watcher监听计算属性               使用计算属性中的watcher监听数据
+    //     计算属性用到的地方      ----------------->     计算属性      -------------------------->     计算属性中的数据
+    //                           <-----------------                     <------------------------
+    //                 计算属性中watcher通知计算属性用到的地方进行更新     通知计算属性的watcher发生了变化 -->
+
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * 
+     * 
+     * 初始化watch
+     */
+
+    var vm = new Vue({
+      data: {
+        a: 1,
+        b: 2,
+        c: 3,
+        d: 4,
+        e: {
+          f: {
+            g: 5
+          }
+        }
+      },
+      watch: {
+        a: function (val, oldVal) {
+          console.log('new: %s, old: %s', val, oldVal)
+        },
+        // methods选项中的方法名
+        b: 'someMethod',
+        // 深度侦听，该回调会在任何被侦听的对象的 property 改变时被调用，不论其被嵌套多深
+        c: {
+          handler: function (val, oldVal) {
+            /* ... */
+          },
+          deep: true
+        },
+        // 该回调将会在侦听开始之后被立即调用
+        d: {
+          handler: 'someMethod',
+          immediate: true
+        },
+        // 调用多个回调
+        e: [
+          'handle1',
+          function handle2(val, oldVal) {
+            /* ... */
+          },
+          {
+            handler: function handle3(val, oldVal) {
+              /* ... */
+            },
+          }
+        ],
+        // 侦听表达式
+        'e.f': function (val, oldVal) {
+          /* ... */
+        }
+      }
+    })
+    vm.a = 2 // => new: 2, old: 1
+
+    /**
+     * 下面是源码
+     */
+    function initWatch(vm, watch) {
+      // 遍历
+      for (const key in watch) {
+        const handler = watch[key]
+        // 是否数组
+        if (Array.isArray(handler)) {
+          for (let i = 0; i < handler.length; i++) {
+            createWatcher(vm, key, handler[i])
+          }
+        } else {
+          createWatcher(vm, key, handler)
+        }
+      }
+    }
+
+    /*************************************************************************************************************************************************/
+    // 调用createWatcher函数
+    function createWatcher(
+      vm: Component,
+      expOrFn: string | Function,
+      handler: any,
+      options ? : Object
+    ) {
+      // 是否对象
+      if (isPlainObject(handler)) {
+        options = handler
+        handler = handler.handler
+        // 现在handler相当于函数
+      }
+      // 是否字符串
+      if (typeof handler === 'string') {
+        handler = vm[handler]
+      }
+      // 如果既不是对象又不是字符串，那么我们就认为它是一个函数，就不做任何处理。
+      return vm.$watch(expOrFn, handler, options)
+    }
+
+
+    /*************************************************************************************************************************************************/
+    // 总结
+
+
+
+    /**
+     * 
+     * initState函数中一共初始化了 props、method、data、computed、watcher 五个初始化函数
+     * 只有按照这种顺序初始化我们才能在开发中在data中可以使用props，在watch中可以观察data和props
+     * 这五个选项中的所有属性都会绑定到实例上，这也就是我们为什么可以使用this.xxx来访问任意属性
+    */
   </script>
 </body>
 
