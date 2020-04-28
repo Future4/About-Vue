@@ -651,7 +651,101 @@
      * initState函数中一共初始化了 props、method、data、computed、watcher 五个初始化函数
      * 只有按照这种顺序初始化我们才能在开发中在data中可以使用props，在watch中可以观察data和props
      * 这五个选项中的所有属性都会绑定到实例上，这也就是我们为什么可以使用this.xxx来访问任意属性
-    */
+     */
+
+    /*************************************************************************************************************************************************/
+    /**
+     * 挂载阶段
+     */
+    export function mountComponent(vm, el, hydrating) {
+      vm.$el = el
+
+      if (!vm.$options.render) {
+        vm.$options.render = createEmptyVNode
+      }
+      callHook(vm, 'beforeMount')
+
+      let updateComponent
+      // 对比新旧VNode 更新dom节点 path操作，然后完成一次渲染
+      updateComponent = () => {
+        vm._update(vm._render(), hydrating)
+      }
+
+      // 在watcher阶段 触发updateComponent函数后，会触发getter函数，get会把watcher实例添加好数据依赖中，
+      // 如果数据变动时，会触发set函数，通知依赖去更新
+      new Watcher(vm, updateComponent, noop, {
+        before() {
+          if (vm._isMounted) {
+            callHook(vm, 'beforeUpdate')
+          }
+        }
+      }, true /* isRenderWatcher */ )
+
+      hydrating = false
+
+      if (vm.$vnode == null) {
+        vm._isMounted = true
+        callHook(vm, 'mounted')
+      }
+      return vm
+    }
+
+    // 主要干了两件事情，船舰Vue实例，并用实例去替换el选项对应的Dom元素，同时开启数据监控
+    // 第一部分是将模板渲染到视图上，第二部分是开启对模板中数据（状态）的监控
+
+    /*************************************************************************************************************************************************/
+    /**
+     * 销毁阶段
+     */
+
+    Vue.prototype.$destroy = function () {
+      const vm: Component = this
+      // 是否正在销毁
+      if (vm._isBeingDestroyed) {
+        return
+      }
+      callHook(vm, 'beforeDestroy')
+      vm._isBeingDestroyed = true
+      // 从父级实例中移除自己
+      // remove self from parent
+      const parent = vm.$parent
+      if (parent && !parent._isBeingDestroyed && !vm.$options.abstract) {
+        remove(parent.$children, vm)
+      }
+      // 移除watcher实例
+      // teardown watchers
+      if (vm._watcher) {
+        vm._watcher.teardown()
+      }
+      let i = vm._watchers.length
+      while (i--) {
+        vm._watchers[i].teardown()
+      }
+      // remove reference from data ob
+      // frozen object may not have observer.
+      if (vm._data.__ob__) {
+        vm._data.__ob__.vmCount--
+      }
+      // call the last hook...
+      vm._isDestroyed = true
+      // invoke destroy hooks on current rendered tree
+      vm.__patch__(vm._vnode, null)
+      // fire destroyed hook
+      callHook(vm, 'destroyed')
+      // turn off all instance listeners.
+      vm.$off()
+      // remove __vue__ reference
+      if (vm.$el) {
+        vm.$el.__vue__ = null
+      }
+      // release circular reference (##6759)
+      if (vm.$vnode) {
+        vm.$vnode.parent = null
+      }
+    }
+    // 当调用了实例上的vm.$destory方法后，实例就进入了销毁阶段，
+    // 在该阶段所做的主要工作是将当前的Vue实例从其父级实例中删除，
+    // 取消当前实例上的所有依赖追踪并且移除实例上的所有事件监听器
   </script>
 </body>
 
