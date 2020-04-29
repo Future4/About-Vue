@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>5.实例-事件相关</title>
+</head>
+
+<body>
+  <script>
+    /**
+     * 
+     * 事件相关源码
+     */
+    export function eventsMixin(Vue) {
+      Vue.prototype.$on = function (event, fn) {}
+      Vue.prototype.$once = function (event, fn) {}
+      Vue.prototype.$off = function (event, fn) {}
+      Vue.prototype.$emit = function (event) {}
+    }
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * vm.$on
+     */
+    vm.$on('test', function (msg) {
+      console.log(msg)
+    })
+    vm.$emit('test', 'hi')
+    // => "hi"
+
+    // 内部源码
+    Vue.prototype.$on = function (event, fn) {
+      const vm: Component = this
+      // 判断是否数组
+      if (Array.isArray(event)) {
+        // 循环vm.$on数组
+        for (let i = 0, l = event.length; i < l; i++) {
+          this.$on(event[i], fn)
+        }
+      } else {
+        // 把event当Key。尝试在实例的_event上获取对应的事件列表，如果找不到，那就把事件列表赋值空数组，然后把回调方法push到数组里
+        (vm._events[event] || (vm._events[event] = [])).push(fn)
+      }
+      return vm
+    }
+    // 在初始化initEvent的时候，实例上的_event属性赋值给了空对象
+    export function initEvents(vm: Component) {
+      vm._events = Object.create(null)
+      // ...
+
+    }
+    // 所有绑定在这个实例上的事件都会存储在时间中心_enevt属性里面
+
+    /*************************************************************************************************************************************************/
+
+    /**
+     * vm.$emit
+     */
+
+    vm.$on('test', function (msg) {
+      console.log(msg)
+    })
+    vm.$emit('test', 'hi')
+    // => "hi"
+    Vue.prototype.$emit = function (event: string): Component {
+      const vm: Component = this
+      // 获取实例上的所有事件所对应的回调函数
+      let cbs = vm._events[event]
+      if (cbs) {
+        cbs = cbs.length > 1 ? toArray(cbs) : cbs
+        // 得到传递的参数
+        const args = toArray(arguments, 1)
+        // 遍历回调函数
+        for (let i = 0, l = cbs.length; i < l; i++) {
+          try {
+            // 执行回调函数并且附加参数args传给回调
+            cbs[i].apply(vm, args)
+          } catch (e) {
+            handleError(e, vm, `event handler for "${event}"`)
+          }
+        }
+      }
+      return vm
+    }
+  </script>
+</body>
+
+</html>
