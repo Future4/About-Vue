@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>作用域插槽</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.11"></script>
+</head>
+
+<body>
+  <div id="app">
+    <div class='card'>
+      <child>
+        <!-- 第二步 得到user 并且用解构赋值的方法 -->
+        <template v-slot:selfname="{user}"> <!-- {user}用了解构复制   selfname为具名插槽-->
+          {{user}}  <!--结果为： { "name": "zhangjian", "age": "22", "job": "web" } -->
+        </template>
+      </child>
+    </div>
+
+
+
+    <todo-list :todos="todos">
+      <template v-slot:todo="{todo}">
+        {{todo}}
+      </template>
+    </todo-list>
+  </div>
+  <script>
+    /**
+     * 
+     * 作用域插槽
+     * 
+     * 先有一个逻辑，当子组件有一个值，我想在父组件通过插槽来展示这个值，那么该怎么做，如果直接在父组件调用，是找不到这个值的，因为作用域不同
+     */
+    Vue.component('child', {
+      data() {
+        return {
+          userinfo: {
+            name: 'zhangjian',
+            age: '22',
+            job: 'web',
+          }
+        }
+      },
+      template: `
+          <div class='card'>
+            <!-- 在插槽上绑定子组件的数据  selfname为具名插槽-->
+            <!-- 第一步 把内部数据放到插槽上，传递给父组件的名字叫user-->
+            <slot name="selfname" :user="userinfo"/>
+          </div>
+        `
+    })
+
+
+
+    // 作用域插槽的练习
+    Vue.component('todo-list', {
+      props:{
+        todos:{
+          type:Array
+        }
+      },
+      data() {
+        return {
+          filteredTodos :this.todos
+        }
+      },
+      template: `
+          <div class='card'>
+            <ul>
+              <li v-for="item in filteredTodos">
+                <slot name="todo" :todo="item">
+                    <!-- 这里存放的是默认数据-->
+                    {{item.text}} 
+                </slot>
+              </li>  
+            </ul>
+          </div>
+        `
+    })
+    new Vue({
+      el: '#app',
+      data:{
+        todos:[
+          {text:"todo1"},
+          {text:"todo2"},
+          {text:"todo3"},
+          {text:"todo4"},
+        ]
+      }
+    })
+  </script>
+</body>
+
+</html>
