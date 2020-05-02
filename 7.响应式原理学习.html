@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>响应式原理学习</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.11"></script>
+</head>
+
+<body>
+  <div id="app">
+    <div @click="change">
+      {{message}}
+    </div>
+  </div>
+  <script>
+    var vm = new Vue({
+      el: '#app',
+      data: {
+        myobj: {
+          a: 1,
+          b: 1
+        },
+        message: '未更新'
+      },
+      methods: {
+        // change() {
+        //   this.myobj = {
+        //     a: 3,
+        //     b: 3
+        //   }
+        //   this.message = '已更新'
+
+        //   console.log(this.$el.textContent)
+
+        //   this.$nextTick(function () {
+        //     console.log(this.$el.textContent) // => '已更新'
+        //   })
+        // }
+        // 或者
+        change:async function(){
+          this.message = '已更新'
+          console.log(this.$el.textContent)
+
+          await this.$nextTick()
+
+          console.log(this.$el.textContent)
+        }
+      }
+    })
+    /**
+     * 
+     * 对于对象来说
+     * 
+     * Vue.set(vm.myobj,"b",3)  
+     * 或者
+     * vm.$set(vm.myobj,'b',3)
+     * 
+     * 
+     * 如果想改变多个属性
+     * 
+     * this.myobj = Object.assign({},this.myobj,{a:3,b:3})
+     * 
+     */
+
+
+
+    /**
+     * 
+     * 对于数组来说
+     * 
+     * Vue.set(vm.items, indexOfItem, newValue)
+     * 或者
+     * vm.$set(vm.items, indexOfItem, newValue)
+     * 
+     * vm.items.splice(indexOfItem, 1, newValue)
+     * 
+     * 
+     * 
+     */
+
+
+    /**
+     * 
+     * 异步更新队列
+     * 
+     * 
+     */
+  </script>
+</body>
+
+</html>
