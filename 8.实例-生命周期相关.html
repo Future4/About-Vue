@@ -1,1 +1,60 @@
 
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    // vm.$forceUpdate
+    // 强制更新方法
+    Vue.prototype.$forceUpdate = function () {
+      const vm: Component = this
+      // 实例下有watcher
+      if (vm._watcher) {
+        // 调用了watcher的update方法
+        vm._watcher.update()
+      }
+    }
+
+    /**
+     * 内部原理：
+     * 什么情况下实例会重新渲染，实例对应的数据发生变化时，变化的数据会通知依赖的watcher更新，
+     * 收集依赖就是收集watcher
+     * 更新依赖就是watcher调用了update方法
+     * 
+     * 
+     * 结果：重新渲染就是调用了watcher的update方法
+     * 
+     */
+
+
+    // vm.$nextTick
+    // 将回调放到下次dom更新后执行
+    var vm = new Vue({
+      el: '##example',
+      data: {
+        message: '123'
+      }
+    })
+    vm.message = 'new message' // 更改数据
+    console.log(vm.$el.innerHTML) // '123'
+    Vue.nextTick(function () {
+      console.log(vm.$el.innerHTML) // 'new message'
+    })
+
+    /**
+     * 内部原理：
+     * vue在更新dom时是异步的，只要侦听到数据变化，vue将开启一个事件队列，缓冲在同一事件循环中发生的所有数据改变，
+     * 如果同一个watcher被触发了多次，那么只会推入到事件队列中一次
+     * 
+     */
+  </script>
+</body>
+
+</html>
