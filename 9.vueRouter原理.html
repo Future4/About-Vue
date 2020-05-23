@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+
+<body>
+    <script>
+        // 路由的原理就是，更新视图，但不重新请求页面
+        // 其中涉及到了两个 hash history
+
+
+        // 根据mode确定history实际的类并实例化
+        switch (mode) {
+            case 'history':
+                this.history = new HTML5History(this, options.base)
+                break
+            case 'hash':
+                this.history = new HashHistory(this, options.base, this.fallback)
+                break
+            case 'abstract':
+                this.history = new AbstractHistory(this, options.base)
+                break
+            default:
+                if (process.env.NODE_ENV !== 'production') {
+                    assert(false, `invalid mode: ${mode}`)
+                }
+        }
+
+        // 从设置路由到视图更新的过程是：
+        // this.$router.push() --> HashHistory.push() --> History.transtionTo() --> History.updateRoute() --> {app._route = route} --> vm.render()
+
+        $router.push() //调用方法
+
+        HashHistory.push() //根据hash模式调用,设置hash并添加到浏览器历史记录（添加到栈顶）（window.location.hash= XXX）
+
+        History.transitionTo() //监测更新，更新则调用History.updateRoute()
+
+        History.updateRoute() //更新路由
+
+        {
+            app._route = route
+        } //替换当前app路由
+
+        vm.render() //更新视图
+
+
+        
+    </script>
+</body>
+
+</html>
